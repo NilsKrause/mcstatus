@@ -1,0 +1,28 @@
+syntax="proto3";
+
+package pb;
+
+option go_package = "git.0cd.xyz/michael/mcstatus/pb";
+
+message Response {
+    message Version {
+        string name = 1;
+        int32 protocol = 2;
+    }
+    Version version = 1;
+    message Players {
+        int32 max = 1;
+        int32 online = 2;
+        message Sample {
+            string name = 1;
+            string id = 2;
+        }
+        repeated Sample sample = 3;
+    }
+    Players players = 2;
+    message Description {
+        string text = 1;
+    }
+    Description description = 3;
+    string favicon = 4;
+}
