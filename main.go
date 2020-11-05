@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net"
+	"os"
 	"strconv"
 	"time"
 )
@@ -40,79 +40,142 @@ func handshake(addr string, port int, ver uint64) []byte {
 	return handshake.Bytes()
 }
 
-func main() {
+func pingServer(conn net.Conn) time.Duration {
+	ping := make([]byte, 1)
+	start := time.Now()
+	conn.Write([]byte{0x01, 0x00})
+	_, _ = conn.Read(ping[:])
+	diff := time.Now().Sub(start)
+	return diff
+}
+
+func orig() error {
+	flag.Usage = func() {
+		fmt.Printf("Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	addr := flag.String("addr", "127.0.0.1", "Server address")
 	port := flag.Int("port", 25565, "Server Port")
 	ver := flag.Uint64("ver", 751, "Minecraft protocol version number")
+	raw := flag.Bool("raw", false, "Prints raw json")
+	ping := flag.Bool("ping", false, "Pings the server")
 	flag.Parse()
+
+	/*if len(os.Args) < 2 {
+		flag.Usage()
+		return
+	}*/
 
 	conn, err := net.Dial("tcp", *addr+":"+strconv.Itoa(*port))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for {
-		err := conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+		err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		if err != nil {
-			log.Println("WriteDealine failed:", err)
-			return
+			conn.Close()
+			return err
 		}
 
 		conn.Write(handshake(*addr, *port, *ver))
 		conn.Write([]byte{0x01, 0x00})
 
-		recvBuf := make([]byte, 512)
-		var resp response
-
 		err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		if err != nil {
-			log.Println("SetReadDealine failed:", err)
-			return
+			conn.Close()
+			return err
 		}
+
+		recvBuf := make([]byte, 512)
+		var resp response
 
 		n, err := conn.Read(recvBuf)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				log.Println("read timeout:", err)
-			} else {
-				log.Println("read error", err)
+				conn.Close()
+				return err
 			}
-		}
-
-		requestright := recvBuf[:n]
-		b := bytes.Split(requestright, []byte("{"))
-		ne := bytes.SplitAfterN(requestright, b[0], 2)
-		after := bytes.TrimSuffix(ne[1], []byte("\x00"))
-
-		if err := json.Unmarshal(after, &resp); err != nil {
-			log.Println(err)
 			conn.Close()
-			return
-		}
-		fmt.Printf("Name: %s\nPlayers: %d/%d\nVersion: %s\n",
-			resp.Description.Text,
-			resp.Players.Online,
-			resp.Players.Max,
-			resp.Version.Name)
-		if resp.Players.Online >= 1 {
-			fmt.Println("Online:")
-			for _, player := range resp.Players.Sample {
-				fmt.Printf("\t%s\n", player.Name)
-			}
+			return err
 		}
 
-		recvBuf = make([]byte, 1)
-		start := time.Now()
-		conn.Write([]byte{0x01, 0x00})
-		_, _ = conn.Read(recvBuf[:])
-		diff := time.Now().Sub(start)
-		fmt.Printf("Ping: %+v\n", diff)
-		if err = conn.Close(); err != nil {
-			log.Println(err)
-			return
+		b := bytes.Split(recvBuf[:n], []byte("{"))
+		ne := bytes.SplitAfterN(recvBuf[:n], b[0], 2)
+		trim := bytes.TrimSuffix(ne[1], []byte("\x00"))
+
+		if *ping == false {
+			if err := json.Unmarshal(trim, &resp); err != nil {
+				conn.Close()
+				return err
+			}
+			if *raw == true {
+				json, err := json.MarshalIndent(resp, "", "  ")
+				if err != nil {
+					conn.Close()
+					return err
+				}
+				fmt.Printf("%s\n", string(json))
+				conn.Close()
+				return err
+			}
+			fmt.Printf("Name: %s\nPlayers: %d/%d\nVersion: %s\n",
+				resp.Description.Text,
+				resp.Players.Online,
+				resp.Players.Max,
+				resp.Version.Name)
+			if resp.Players.Online >= 1 {
+				fmt.Println("Online:")
+				for _, player := range resp.Players.Sample {
+					fmt.Printf("\t%s\n", player.Name)
+				}
+			}
 		}
-		return
+		fmt.Printf("Ping: %+v\n", pingServer(conn))
+		if err = conn.Close(); err != nil {
+			conn.Close()
+			return err
+		}
+		return nil
 	}
+}
+
+func main() {
+	if err := orig(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	flag.Usage = func() {
+		fmt.Printf("Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+	addr := flag.String("addr", "127.0.0.1", "Server address")
+	port := flag.Int("port", 25565, "Server Port")
+	//ver := flag.Uint64("ver", 751, "Minecraft protocol version number")
+	flag.Parse()
+
+	conn, err := net.Dial("tcp", *addr+":"+strconv.Itoa(*port))
+	if err != nil {
+		return err
+	}
+
+	/*conn.Write(handshake(*addr, *port, *ver))
+	conn.Write([]byte{0x01, 0x00})*/
+
+	recvBuf := make([]byte, 512)
+
+	n, err := conn.Read(recvBuf)
+	if err != nil {
+		return err
+	}
+
+	conn.Write([]byte{0x00})
+
+	fmt.Println(string(recvBuf[:n]))
+	return nil
 }
 
 type response struct {
