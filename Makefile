@@ -25,4 +25,3 @@ proto:
 	protoc --go_out=/home/michael/go/src response.proto
 
 .PHONY: run doc build debs update-debs fmt proto
-

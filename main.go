@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"git.0cd.xyz/michael/mcstatus/client"
 )
 
 func main() {
@@ -15,52 +17,40 @@ func main() {
 
 func run() error {
 	cmd := ui()
-	conn, err := newConn(cmd)
+	client, err := client.New(cmd.addr, cmd.port, cmd.version)
 	if err != nil {
 		return err
 	}
+	defer client.Conn.Close()
 	for {
-		if err := conn.write(); err != nil {
-			return err
-		}
-		resp, err := conn.read()
+		status, err := client.GetStatus()
 		if err != nil {
 			return err
 		}
 		if cmd.ping {
-			fmt.Printf("Ping: %+v\n", conn.pingServer())
-			if err = conn.conn.Close(); err != nil {
-				conn.conn.Close()
-				return err
-			}
+			fmt.Printf("Ping: %+v\n", client.PingServer())
 			return nil
 		}
 		if cmd.raw {
-			json, err := json.MarshalIndent(&resp, "", "  ")
+			json, err := json.MarshalIndent(&status, "", "  ")
 			if err != nil {
-				conn.conn.Close()
 				return err
 			}
 			fmt.Printf("%s\n", string(json))
-			conn.conn.Close()
-			return err
+			return nil
 		}
 		fmt.Printf("Name: %s\nPlayers: %d/%d\nVersion: %s\n",
-			resp.Description.Text,
-			resp.Players.Online,
-			resp.Players.Max,
-			resp.Version.Name)
-		if resp.Players.Online >= 1 {
+			status.Description.Text,
+			status.Players.Online,
+			status.Players.Max,
+			status.Version.Name)
+		if status.Players.Online >= 1 {
 			fmt.Println("Online:")
-			for _, player := range resp.Players.Sample {
+			for _, player := range status.Players.Sample {
 				fmt.Printf("\t%s\n", player.Name)
 			}
 		}
-		fmt.Printf("Ping: %+v\n", conn.pingServer())
-		if err = conn.conn.Close(); err != nil {
-			conn.conn.Close()
-			return err
-		}
+		fmt.Printf("Ping: %+v\n", client.PingServer())
 		return nil
 	}
 }

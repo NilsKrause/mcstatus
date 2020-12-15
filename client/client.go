@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"bytes"
@@ -11,65 +11,54 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 )
 
-type client struct {
-	cmd  *cmd
-	conn net.Conn
+// Client TCP client
+type Client struct {
+	Addr    string
+	Port    int
+	Version uint64
+	Conn    net.Conn
 }
 
-func newConn(cmd *cmd) (*client, error) {
-	conn, err := net.Dial("tcp", cmd.addr+":"+strconv.Itoa(cmd.port))
+// New client connection
+func New(addr string, port int, ver uint64) (*Client, error) {
+	conn, err := net.Dial("tcp", addr+":"+strconv.Itoa(port))
 	if err != nil {
 		return nil, err
 	}
-	return &client{
-		cmd:  cmd,
-		conn: conn,
+	return &Client{
+		Addr:    addr,
+		Port:    port,
+		Version: ver,
+		Conn:    conn,
 	}, nil
 }
 
-func (client *client) write() error {
-	if err := client.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		client.conn.Close()
+func (client *Client) write() error {
+	if err := client.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return err
 	}
-	client.conn.Write(handshake(client.cmd.addr, client.cmd.port, client.cmd.version))
-	client.conn.Write([]byte{0x01, 0x00})
+	client.Conn.Write(handshake(client.Addr, client.Port, client.Version))
 	return nil
 }
 
-func (client *client) read() (*pb.Response, error) {
+func (client *Client) read() (*pb.Response, error) {
 	var response pb.Response
-	if err := client.conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		client.conn.Close()
-		return nil, err
-	}
-	recvBuf := make([]byte, 512)
-	n, err := client.conn.Read(recvBuf)
+	buf := make([]byte, 1024)
+	n, err := client.Conn.Read(buf)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			client.conn.Close()
 			return nil, err
 		}
-		client.conn.Close()
 		return nil, err
 	}
-	b := bytes.Split(recvBuf[:n], []byte("{"))
-	ne := bytes.SplitAfterN(recvBuf[:n], b[0], 2)
+	b := bytes.Split(buf[:n], []byte("{"))
+	ne := bytes.SplitAfterN(buf[:n], b[0], 2)
 	trim := bytes.TrimSuffix(ne[1], []byte("\x00"))
 	js := &jsonpb.Unmarshaler{AllowUnknownFields: true}
 	if err := js.Unmarshal(bytes.NewBuffer(trim), &response); err != nil {
 		return nil, err
 	}
 	return &response, nil
-}
-
-func (client *client) pingServer() time.Duration {
-	ping := make([]byte, 1)
-	start := time.Now()
-	client.conn.Write([]byte{0x01, 0x00})
-	_, _ = client.conn.Read(ping[:])
-	diff := time.Now().Sub(start)
-	return diff
 }
 
 func packetlength(b ...[]byte) (length int) {
@@ -97,5 +86,6 @@ func handshake(addr string, port int, ver uint64) []byte {
 	handshake.WriteString(addr)
 	handshake.Write(p)
 	handshake.Write(state)
+	handshake.Write([]byte{0x01, 0x00})
 	return handshake.Bytes()
 }

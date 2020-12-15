@@ -21,7 +21,11 @@ message Response {
     }
     Players players = 2;
     message Description {
-        string text = 1;
+        message Extra {
+            string text = 1;
+        }
+        repeated Extra extra = 1;
+        string text = 2;
     }
     Description description = 3;
     string favicon = 4;
