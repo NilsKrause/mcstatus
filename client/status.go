@@ -3,7 +3,7 @@ package client
 import (
 	"time"
 
-	"git.0cd.xyz/michael/mcstatus/pb"
+	"git.0cd.xyz/michael/mcstatus/client/pb"
 )
 
 // GetStatus gets minecraft server status

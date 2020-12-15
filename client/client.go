@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.0cd.xyz/michael/mcstatus/pb"
+	"git.0cd.xyz/michael/mcstatus/client/pb"
 	"github.com/golang/protobuf/jsonpb"
 )
 
