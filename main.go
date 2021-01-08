@@ -28,7 +28,11 @@ func run() error {
 			return err
 		}
 		if cmd.ping {
-			fmt.Printf("Ping: %+v\n", client.PingServer())
+			ping, err := client.PingServer()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Ping: %+v\n", ping)
 			return nil
 		}
 		if cmd.raw {
@@ -39,8 +43,12 @@ func run() error {
 			fmt.Printf("%s\n", string(json))
 			return nil
 		}
+		name := status.Description.Text
+		if name == "" {
+			name = status.Description.Extra[0].Text
+		}
 		fmt.Printf("Name: %s\nPlayers: %d/%d\nVersion: %s\n",
-			status.Description.Text,
+			name,
 			status.Players.Online,
 			status.Players.Max,
 			status.Version.Name)
@@ -50,7 +58,11 @@ func run() error {
 				fmt.Printf("\t%s\n", player.Name)
 			}
 		}
-		fmt.Printf("Ping: %+v\n", client.PingServer())
+		ping, err := client.PingServer()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Ping: %+v\n", ping)
 		return nil
 	}
 }
