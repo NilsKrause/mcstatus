@@ -1,8 +1,8 @@
 syntax="proto3";
 
-package pb;
+package mcstatus.protobuf;
 
-option go_package = "git.0cd.xyz/michael/mcstatus/pb";
+option go_package = "git.0cd.xyz/michael/mcstatus/mcstatuspb";
 
 message Response {
     message Version {

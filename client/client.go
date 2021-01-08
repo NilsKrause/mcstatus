@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.0cd.xyz/michael/mcstatus/client/pb"
+	"git.0cd.xyz/michael/mcstatus/mcstatuspb"
 	"github.com/golang/protobuf/jsonpb"
 )
 
@@ -37,12 +37,18 @@ func (client *Client) write() error {
 	if err := client.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return err
 	}
-	client.Conn.Write(handshake(client.Addr, client.Port, client.Version))
+	_, err := client.Conn.Write(handshake(client.Addr, client.Port, client.Version))
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return err
+		}
+		return err
+	}
 	return nil
 }
 
-func (client *Client) read() (*pb.Response, error) {
-	var response pb.Response
+func (client *Client) read() (*mcstatuspb.Response, error) {
+	var response mcstatuspb.Response
 	buf := make([]byte, 1024)
 	n, err := client.Conn.Read(buf)
 	if err != nil {
