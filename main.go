@@ -36,11 +36,11 @@ func run() error {
 			return nil
 		}
 		if cmd.raw {
-			json, err := json.MarshalIndent(&status, "", "  ")
-			if err != nil {
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			if err := encoder.Encode(status); err != nil {
 				return err
 			}
-			fmt.Printf("%s\n", string(json))
 			return nil
 		}
 		name := status.Description.Text
@@ -63,6 +63,5 @@ func run() error {
 			return err
 		}
 		fmt.Printf("Ping: %+v\n", ping)
-		return nil
 	}
 }
