@@ -49,16 +49,28 @@ func (client *Client) write() error {
 
 func (client *Client) read() (*mcstatuspb.Response, error) {
 	var response mcstatuspb.Response
-	buf := make([]byte, 1024)
-	n, err := client.Conn.Read(buf)
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+	readlen := 1024
+	data := make([]byte, 0)
+	readbytes := 0
+	for {
+		buf := make([]byte, readlen)
+		n, err := client.Conn.Read(buf)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return nil, err
+			}
 			return nil, err
 		}
-		return nil, err
+
+		data = append(data, buf...)
+		readbytes += n
+		if n < readlen {
+			break
+		}
 	}
-	b := bytes.Split(buf[:n], []byte("{"))
-	ne := bytes.SplitAfterN(buf[:n], b[0], 2)
+
+	b := bytes.Split(data[:readbytes], []byte("{"))
+	ne := bytes.SplitAfterN(data[:readbytes], b[0], 2)
 	trim := bytes.TrimSuffix(ne[1], []byte("\x00"))
 	js := &jsonpb.Unmarshaler{AllowUnknownFields: true}
 	if err := js.Unmarshal(bytes.NewBuffer(trim), &response); err != nil {

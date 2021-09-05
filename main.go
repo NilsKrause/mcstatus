@@ -3,25 +3,49 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"git.0cd.xyz/michael/mcstatus/api"
+	"net"
 	"os"
+	"os/signal"
 
-	"git.0cd.xyz/michael/mcstatus/client"
+	mcclient "git.0cd.xyz/michael/mcstatus/client"
 )
 
 func main() {
-	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+	cmd := ui()
+
+	if cmd.server {
+		runServer(cmd)
+		return
+	}
+
+	if err := runOnce(cmd); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	cmd := ui()
-	client, err := client.New(cmd.addr, cmd.port, cmd.version)
+func runServer(cmd *cmd) {
+	a := api.NewApi()
+
+	a.Start(cmd.port)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	a.Stop()
+}
+
+func runOnce(cmd *cmd) error {
+	client, err := mcclient.New(cmd.addr, cmd.port, cmd.version)
 	if err != nil {
 		return err
 	}
-	defer client.Conn.Close()
+
+	defer func(Conn net.Conn) {
+		_ = Conn.Close()
+	}(client.Conn)
+
 	for {
 		status, err := client.GetStatus()
 		if err != nil {

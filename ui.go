@@ -7,11 +7,13 @@ import (
 )
 
 type cmd struct {
-	addr    string
-	port    int
-	version uint64
-	raw     bool
-	ping    bool
+	addr    	string
+	port    	int
+	version 	uint64
+	raw     	bool
+	ping    	bool
+	server  	bool
+	serverport 	int
 }
 
 func ui() *cmd {
@@ -24,12 +26,16 @@ func ui() *cmd {
 	version := flag.Uint64("ver", 751, "Minecraft protocol version number")
 	raw := flag.Bool("raw", false, "Prints raw json")
 	ping := flag.Bool("ping", false, "Pings the server")
+	server := flag.Bool("server", false, "Serves /status {address, port, version} endpoint (all other args, except serverport) are ignored")
+	serverport := flag.Int("serverport", 25566, "Server Port when server flag is set")
 	flag.Parse()
 	return &cmd{
-		addr:    *addr,
-		port:    *port,
-		version: *version,
-		raw:     *raw,
-		ping:    *ping,
+		addr:    		*addr,
+		port:    		*port,
+		version: 		*version,
+		raw:     		*raw,
+		ping:    		*ping,
+		server:  		*server,
+		serverport: 	*serverport,
 	}
 }

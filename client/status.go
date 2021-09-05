@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"time"
 
 	"git.0cd.xyz/michael/mcstatus/mcstatuspb"
@@ -10,10 +11,12 @@ import (
 func (client *Client) GetStatus() (*mcstatuspb.Response, error) {
 	for {
 		if err := client.write(); err != nil {
+			fmt.Println("write error")
 			return nil, err
 		}
 		resp, err := client.read()
 		if err != nil {
+			fmt.Println("read error")
 			return nil, err
 		}
 		return resp, nil
